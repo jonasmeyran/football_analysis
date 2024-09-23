@@ -1,0 +1,21 @@
+fenv/
+
+training/
+runs/
+input_videos/
+output_videos/
+
+stubs/
+
+__pycache__/
+*.pyc
+*.pyo
+
+Thumbs.db  # Windows
+
+.vscode/
+
+*.pt
+
+documentation/
+

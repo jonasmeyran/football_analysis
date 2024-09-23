@@ -1,0 +1,7 @@
+ultralytics
+roboflow
+notebook
+ipykernel
+opencv-python
+supervision
+scikit-learn
