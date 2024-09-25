@@ -13,7 +13,12 @@ for box in results[0].boxes:
 
 
 video_frames = read_video('input_videos/08fd33_4.mp4')
-image = video_frames[24]
-result = model.predict(image, save=True)
+image = video_frames[549]
+result = model.predict(image, conf=0.09, save=True)
 print(result[0])
+
+for box in result[0].boxes:
+    if box.cls.item() == 0:
+        print(box.xyxy)
+        print(box.conf.item())
 

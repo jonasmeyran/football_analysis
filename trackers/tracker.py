@@ -5,11 +5,51 @@ import numpy as np
 import pandas as pd
 import os
 import cv2
+import matplotlib.pyplot as plt
 
 class Tracker:
     def __init__(self, model_path: str):
         self.model  = YOLO(model_path)
         self.tracker = cv.ByteTrack()
+
+    def compute_distance_between_positions(self, ball_positions):
+        ball_positions['center_x'] = (ball_positions['x1'] + ball_positions['x2']) / 2
+        ball_positions['center_y'] = (ball_positions['y1'] + ball_positions['y2']) / 2
+        
+        ball_positions['delta_x'] = ball_positions['center_x'].diff()
+        ball_positions['delta_y'] = ball_positions['center_y'].diff()
+        
+        ball_positions['distance'] = np.sqrt(ball_positions['delta_x']**2 + ball_positions['delta_y']**2)
+        
+        return ball_positions
+    
+    def clean_dataframe(self, df_ball_positions, threshold=30):
+        index = 0
+        while index < len(df_ball_positions):
+            if df_ball_positions.loc[index, 'distance'] > threshold:
+                df_ball_positions.loc[index, ['x1', 'y1', 'x2', 'y2']] = np.nan
+                j = index + 1
+                while j < len(df_ball_positions) and (df_ball_positions.loc[j, 'distance'] < 2 or round(df_ball_positions.loc[j, 'distance'], 4) == round(df_ball_positions.loc[j-1, 'distance'], 4)):
+                    df_ball_positions.loc[j, ['x1', 'y1', 'x2', 'y2']] = np.nan
+                    j += 1
+                index = j + 1
+            else:
+                index += 1
+
+        return df_ball_positions
+    
+    def display_ball_positions(self, df_ball_positions):
+        frames = range(len(df_ball_positions))
+        plt.figure(figsize=(10, 5))
+        for index, coord in enumerate(['x1', 'y1']):
+            plt.subplot(1, 2, index+1)
+            plt.plot(frames, df_ball_positions[coord], marker='o', label=coord)
+            plt.xlabel("Frames")
+            plt.ylabel(coord)
+
+        plt.tight_layout()
+        plt.show()
+    
 
     def interpolate_ball_position(self, ball_positions):
         ball_positions = [x.get(1, {}).get('bbox', []) for x in ball_positions]
@@ -19,10 +59,19 @@ class Tracker:
         df_ball_positions = df_ball_positions.interpolate()
         df_ball_positions = df_ball_positions.bfill()
         
-        ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+        self.display_ball_positions(df_ball_positions)
 
+        # clean outliers
+        df_ball_positions = self.compute_distance_between_positions(df_ball_positions)
+
+        df_cleaned = self.clean_dataframe(df_ball_positions)
+        df_cleaned = df_cleaned[['x1', 'y1', 'x2', 'y2']].copy()
+        df_cleaned = df_cleaned.interpolate().bfill()
+        
+        self.display_ball_positions(df_cleaned)
+        
+        ball_positions = [{1: {"bbox": x}} if not any(np.isnan(x)) else {} for x in df_cleaned.to_numpy().tolist()]
         return ball_positions
-
 
     def detect_frames(self, frames: list) -> list:
         batch_size = 20
@@ -91,9 +140,8 @@ class Tracker:
                 cls_id = tracked_object[3]
 
                 if cls_id == cls_names_inv['ball']:
-                    tracks['ball'][frame_num][1] = {"bbox": bbox}
-                    print("track_id: ", tracked_object[4])
-            
+                    tracks['ball'][frame_num][1] = {"bbox": bbox}        
+                                    
         if stub_path is not None:
             with open(stub_path, 'wb') as f:
                 pickle.dump(tracks, f)
