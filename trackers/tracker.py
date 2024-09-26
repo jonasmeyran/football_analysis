@@ -81,29 +81,35 @@ class Tracker:
             detections += detections_batch
 
         return detections
+    
+    def get_detection(self, frames):
+        path = "stubs/detection_stubs.pkl"
+        
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                detections = pickle.load(f)
+        else:
+            detections = self.detect_frames(frames)
+            with open(path, 'wb') as f:
+                pickle.dump(detections, f)
+        
+        return detections
+        
 
-    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None, 
-                          read_from_stub2=False, stub_path2=None) -> dict:
+    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None) -> dict:
 
         if read_from_stub and stub_path is not None and os.path.exists(stub_path):
             with open(stub_path, 'rb') as f:
                 tracks = pickle.load(f)
             return tracks
         
-        if read_from_stub2 and stub_path2 is not None and os.path.exists(stub_path2):
-            with open(stub_path2, 'rb') as f:
-                detections = pickle.load(f)
-        else:
-            detections = self.detect_frames(frames)
-            if stub_path2 is not None:
-                with open(stub_path2, 'wb') as f:
-                    pickle.dump(detections, f)
-        
         tracks = {
             "players": [],
             "referees": [],
             "ball": []
         }
+
+        detections = self.get_detection(frames)
 
         for frame_num, detection in enumerate(detections):
             cls_names = detection.names
