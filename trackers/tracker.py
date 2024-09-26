@@ -1,5 +1,6 @@
 from ultralytics import YOLO
 import supervision as cv
+import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 import pandas as pd
@@ -32,6 +33,20 @@ class Tracker:
             detections += detections_batch
 
         return detections
+    
+    def compute_size_bbox(self, bbox: list) -> float:
+        x1, y1, x2, y2 = bbox
+        size = (x2-x1) * (y2-y1)
+        return size
+    
+    def display_ball_bbox_sizes(self, ball_bbox_sizes: list):
+        frames = list(ball_bbox_sizes.keys())
+        bbox_sizes = list(ball_bbox_sizes.values())
+    
+        plt.scatter(frames, bbox_sizes, marker='o')
+        plt.xlabel("Frames")
+        plt.ylabel("Bbox ball sizes")
+        plt.show()
 
     def get_object_tracks(self, frames, read_from_stub=False, stub_path=None, 
                           read_from_stub2=False, stub_path2=None) -> dict:
@@ -55,6 +70,8 @@ class Tracker:
             "referees": [],
             "ball": []
         }
+
+        ball_bbox_sizes = {}
 
         for frame_num, detection in enumerate(detections):
             cls_names = detection.names
@@ -91,8 +108,10 @@ class Tracker:
                 cls_id = tracked_object[3]
 
                 if cls_id == cls_names_inv['ball']:
+                    ball_bbox_sizes[frame_num] = self.compute_size_bbox(bbox)
                     tracks['ball'][frame_num][1] = {"bbox": bbox}
-                    print("track_id: ", tracked_object[4])
+
+        self.display_ball_bbox_sizes(ball_bbox_sizes)
             
         if stub_path is not None:
             with open(stub_path, 'wb') as f:
