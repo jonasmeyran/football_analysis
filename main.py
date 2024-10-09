@@ -8,26 +8,40 @@ def main():
 
     # Initialize tracker
     tracker = Tracker('models/best.pt')
-    tracks = tracker.get_object_tracks(video_frames, read_from_stub=True, stub_path='stubs/track_stubs.pkl')
+    objects = tracker.get_object_detections(video_frames)
 
     # Interpolation Ball Positions
-    tracks["ball"] = tracker.interpolate_ball_position(tracks["ball"])
+    objects["ball"] = tracker.interpolate_ball_position(objects["ball"])
 
     # Assign Player team
     team_assigner = TeamAssigner()
-    team_assigner.assign_team_color(video_frames[0],
-                                    tracks['players'][0])
-    for frame_number, player_track in enumerate(tracks['players']):
+    team_color = team_assigner.assign_team_color(video_frames[0],
+                                    objects['players'][0])
+    
+    for frame_number, player_track in enumerate(objects['players']):
         for player_id, track in player_track.items():
             team = team_assigner.get_player_team(video_frames[frame_number],
                                                  track["bbox"],
                                                  player_id)
-            tracks["players"][frame_number][player_id]['team'] = team
-            tracks["players"][frame_number][player_id]['team_color'] = team_assigner.team_colors[team]
+            objects["players"][frame_number][player_id]['team'] = team
+            objects["players"][frame_number][player_id]['team_color'] = team_assigner.team_colors[team]
 
+    """print("frame 0 players", objects["ball"][0])
+    print("----------------")
+    print("frame 0 referee", objects["referees"][0])
+    print("----------------")
+    print("frame 0 player 0, ", objects["players"][0][0])
+    print("frame 0 player 1, ", objects["players"][0][1])
+    print("frame 0 player 1, ", objects["players"][0][2])"""
+    
+    tracks = tracker.get_object_tracks(objects)
+    tracks["ball"] = objects["ball"]
+    tracks["referees"] = objects["referees"]
+    # print(tracks["players1"][0])
+ 
     # Draw outputs
     ## Draw object tracks
-    output_video_frames = tracker.draw_anotations(video_frames=video_frames, tracks=tracks)
+    output_video_frames = tracker.draw_anotations(video_frames=video_frames, tracks=tracks, team_color=team_color)
 
 
     save_video(output_video_frames, 'output_videos/output_video.avi')

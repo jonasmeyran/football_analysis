@@ -51,7 +51,7 @@ class Tracker:
         plt.show()
     
 
-    def interpolate_ball_position(self, ball_positions):
+    def interpolate_ball_position(self, ball_positions): 
         ball_positions = [x.get(1, {}).get('bbox', []) for x in ball_positions]
         df_ball_positions = pd.DataFrame(ball_positions, columns=['x1', 'y1', 'x2', 'y2'])
 
@@ -59,7 +59,7 @@ class Tracker:
         df_ball_positions = df_ball_positions.interpolate()
         df_ball_positions = df_ball_positions.bfill()
         
-        self.display_ball_positions(df_ball_positions)
+        # self.display_ball_positions(df_ball_positions)
 
         # clean outliers
         df_ball_positions = self.compute_distance_between_positions(df_ball_positions)
@@ -68,7 +68,7 @@ class Tracker:
         df_cleaned = df_cleaned[['x1', 'y1', 'x2', 'y2']].copy()
         df_cleaned = df_cleaned.interpolate().bfill()
         
-        self.display_ball_positions(df_cleaned)
+        # self.display_ball_positions(df_cleaned)
         
         ball_positions = [{1: {"bbox": x}} if not any(np.isnan(x)) else {} for x in df_cleaned.to_numpy().tolist()]
         return ball_positions
@@ -94,16 +94,10 @@ class Tracker:
                 pickle.dump(detections, f)
         
         return detections
+    
+    def get_object_detections(self, frames) -> dict:
         
-
-    def get_object_tracks(self, frames, read_from_stub=False, stub_path=None) -> dict:
-
-        if read_from_stub and stub_path is not None and os.path.exists(stub_path):
-            with open(stub_path, 'rb') as f:
-                tracks = pickle.load(f)
-            return tracks
-        
-        tracks = {
+        objects = {
             "players": [],
             "referees": [],
             "ball": []
@@ -122,35 +116,95 @@ class Tracker:
             for object_ind, class_id in enumerate(detection_supervision.class_id):
                 if cls_names[class_id] == 'goalkeeper':
                     detection_supervision.class_id[object_ind] = cls_names_inv["player"]
+
+            """print(type(detection_supervision))
+            print(detection_supervision)
+            print(detection_supervision[0])
+            exit()"""
+            
+            # Track Objects
+
+            objects['players'].append({})
+            objects['referees'].append({})
+            objects['ball'].append({})
+
+            for number_object, object in enumerate(detection_supervision):
+                bbox = object[0].tolist()
+                confidence = object[2]
+                cls_id = object[3]
+
+                if cls_id == cls_names_inv['player']:
+                    objects['players'][frame_num][number_object] = {"bbox": bbox, "confidence": confidence}
+                
+                elif cls_id == cls_names_inv['referee']:
+                    objects['referees'][frame_num][number_object] = {"bbox": bbox}
+
+                else:
+                    objects['ball'][frame_num][1] = {"bbox": bbox}        
+                                    
+        return objects
+        
+
+    def get_object_tracks(self, objects, read_from_stub=False, stub_path=None) -> dict:
+
+        """if read_from_stub and stub_path is not None and os.path.exists(stub_path):
+            with open(stub_path, 'rb') as f:
+                tracks = pickle.load(f)
+            return tracks"""
+        
+        tracks = {
+            "players1": [],
+            "players2": [],
+            "referees": [],
+            "ball": []
+        }
+
+        for frame_num, detections in enumerate(objects["players"]):
+            xyxy = []
+            class_id = []
+            class_name = []
+            confidence = []
+            #print('detections', detections)
+            for detection in detections.values():
+                # print(detection)
+                xyxy.append(detection["bbox"])
+                class_id.append(detection["team"])
+                confidence.append(detection["confidence"])
+                if detection["team"] == 1:
+                    class_name.append("player1")
+                else:
+                    class_name.append("player2")
+
+            detection_supervision = cv.Detections(
+                xyxy=np.array(xyxy, dtype=np.float32),
+                confidence=np.array(confidence),
+                class_id=np.array(class_id),
+                data={"class_name": np.array(class_name, dtype='<U10')}
+            )
+
+            """print(detection_supervision)
+            print(type(detection_supervision))"""
             
             # Track Objects
             detection_with_tracks = self.tracker.update_with_detections(detection_supervision)
 
-            tracks['players'].append({})
-            tracks['referees'].append({})
-            tracks['ball'].append({})
+            tracks['players1'].append({})
+            tracks['players2'].append({})
+
 
             for tracked_object in detection_with_tracks:
                 bbox = tracked_object[0].tolist()
                 cls_id = tracked_object[3]
                 track_id = tracked_object[4]
 
-                if cls_id == cls_names_inv['player']:
-                    tracks['players'][frame_num][track_id] = {"bbox": bbox}
+                if cls_id == 1: # Team1
+                    tracks['players1'][frame_num][track_id] = {"bbox": bbox}
+                else:
+                    tracks['players2'][frame_num][track_id] = {"bbox": bbox}
                 
-                if cls_id == cls_names_inv['referee']:
-                    tracks['referees'][frame_num][track_id] = {"bbox": bbox}
-
-            for tracked_object in detection_supervision:
-                bbox = tracked_object[0].tolist()
-                cls_id = tracked_object[3]
-
-                if cls_id == cls_names_inv['ball']:
-                    tracks['ball'][frame_num][1] = {"bbox": bbox}        
-                                    
-        if stub_path is not None:
+        """if stub_path is not None:
             with open(stub_path, 'wb') as f:
-                pickle.dump(tracks, f)
+                pickle.dump(tracks, f)"""
 
         return tracks
 
@@ -218,19 +272,24 @@ class Tracker:
 
         return frame
 
-    def draw_anotations(self, video_frames: list, tracks: dict):
+    def draw_anotations(self, video_frames: list, tracks: dict, team_color):
         output_video_frames = []
         for frame_num, frame in enumerate(video_frames):
             frame = frame.copy()
 
-            player_dict = tracks["players"][frame_num]
+            player_dict1 = tracks["players1"][frame_num]
+            player_dict2 = tracks["players2"][frame_num]
             ball_dict = tracks["ball"][frame_num]
             referee_dict = tracks["referees"][frame_num]
 
             # Draw players
-            for track_id, player in player_dict.items():
-                color = player.get("team_color", (0,0,255))
-                frame = self.draw_ellipse(frame, player["bbox"], color, track_id)
+            for track_id, player in player_dict1.items():
+                #color = player.get("team_color", (0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"], team_color[1], track_id)
+            
+            for track_id, player in player_dict2.items():
+                #color = player.get("team_color", (0,0,255))
+                frame = self.draw_ellipse(frame, player["bbox"], team_color[2], track_id)
 
             # Draw referees
             for _, referee in referee_dict.items():

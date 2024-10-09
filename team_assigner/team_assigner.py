@@ -43,6 +43,8 @@ class TeamAssigner:
         self.team_colors[1] = kmeans.cluster_centers_[0]
         self.team_colors[2] = kmeans.cluster_centers_[1]
 
+        return self.team_colors  # faire un get c'est plus propre
+
     def get_player_team(self, frame, player_bbox, player_id):
         if player_id in self.player_team_dict:
             return self.player_team_dict[player_id]
