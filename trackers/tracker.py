@@ -157,11 +157,30 @@ class Tracker:
                     tracks['referees'][frame_num][index_referee] = {"bbox": bbox}    
                     index_referee +=1 
                                     
-        """if stub_path is not None:
+        if stub_path is not None:
             with open(stub_path, 'wb') as f:
-                pickle.dump(tracks, f)"""
+                pickle.dump(tracks, f)
 
         return tracks
+    
+    def separate_tracks_by_team(self, player_tracks):
+        player_tracks_team1 = [{}]
+        player_tracks_team2 = [{}]
+
+        for frame_number, players in enumerate(player_tracks):
+            for player_id, player_information in players.items():
+                if player_information['team'] == 1:
+                    player_tracks_team1[frame_number][player_id] = player_information
+                else:
+                    player_tracks_team2[frame_number][player_id] = player_information
+        return player_tracks_team1, player_tracks_team1
+        
+
+    def correct_tracks(self, tracks):
+        player_tracks = tracks['players']
+        max_tracking_id = max(
+        (tracking_id for player_track in player_tracks for tracking_id in player_track.keys()), default=0)
+
 
     def draw_ellipse(self, frame, bbox, color, track_id=None):
         y2 = int(bbox[3])
