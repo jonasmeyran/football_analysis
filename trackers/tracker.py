@@ -142,6 +142,10 @@ class Tracker:
                 cls_id = tracked_object[3]
                 track_id = tracked_object[4]
 
+                if tracked_object[4] == 22:
+                    print(tracked_object)
+                    exit()
+
                 if cls_id == cls_names_inv['player']:
                     tracks['players'][frame_num][track_id] = {"bbox": bbox}
 
@@ -178,9 +182,29 @@ class Tracker:
 
     def correct_tracks(self, tracks):
         player_tracks = tracks['players']
+        print(type(player_tracks))
+        print(player_tracks[0])
+
+        max_tracking_id = max(
+        (tracking_id for player_track in player_tracks for tracking_id in player_track.keys()), default=0)
+    
+    def reformat_tracks_for_correction(self, tracks):
+        player_tracks = tracks['players']
+
         max_tracking_id = max(
         (tracking_id for player_track in player_tracks for tracking_id in player_track.keys()), default=0)
 
+        reformatted_tracks = {tracking_id: {'num_frames': [], 'team_id': [], 'bbox': []} 
+                              for tracking_id in range(1, max_tracking_id + 1)}
+
+        for frame_number, player_track in enumerate(player_tracks):
+            for tracking_id, player_information in player_track.items():
+                reformatted_tracks[tracking_id]['num_frames'].append(frame_number)
+                reformatted_tracks[tracking_id]['team_id'].append(player_information['team'])
+                reformatted_tracks[tracking_id]['bbox'].append(player_information['bbox'])
+
+        with open('stubs/reformated_tracks_stubs.pkl', 'wb') as f:
+            pickle.dump(reformatted_tracks, f)
 
     def draw_ellipse(self, frame, bbox, color, track_id=None):
         y2 = int(bbox[3])

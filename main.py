@@ -2,13 +2,15 @@ from utils import read_video, save_video
 from trackers import Tracker
 import cv2
 from team_assigner import TeamAssigner
+import time
 
 def main():
     video_frames = read_video('input_videos/08fd33_4.mp4')
 
     # Initialize tracker
     tracker = Tracker('models/best.pt')
-    tracks = tracker.get_object_tracks(video_frames, read_from_stub=False, stub_path='stubs/track_stubs.pkl')
+    tracks = tracker.get_object_tracks(video_frames, read_from_stub=True, stub_path='stubs/track_stubs.pkl')
+    # tracks = tracker.get_object_tracks(video_frames, read_from_stub=False)
 
     # Interpolation Ball Positions
     tracks["ball"] = tracker.interpolate_ball_position(tracks["ball"])
@@ -27,6 +29,13 @@ def main():
 
     # Draw outputs
     ## Draw object tracks
+    tracker.reformat_tracks_for_correction(tracks)
+
+    start = time.time()
+
+    print("Execution time:", time.time() - start)
+    exit()
+
     output_video_frames = tracker.draw_anotations(video_frames=video_frames, tracks=tracks)
 
 
