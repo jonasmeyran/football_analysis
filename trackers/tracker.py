@@ -142,10 +142,6 @@ class Tracker:
                 cls_id = tracked_object[3]
                 track_id = tracked_object[4]
 
-                if tracked_object[4] == 22:
-                    print(tracked_object)
-                    exit()
-
                 if cls_id == cls_names_inv['player']:
                     tracks['players'][frame_num][track_id] = {"bbox": bbox}
 
@@ -166,27 +162,6 @@ class Tracker:
                 pickle.dump(tracks, f)
 
         return tracks
-    
-    def separate_tracks_by_team(self, player_tracks):
-        player_tracks_team1 = [{}]
-        player_tracks_team2 = [{}]
-
-        for frame_number, players in enumerate(player_tracks):
-            for player_id, player_information in players.items():
-                if player_information['team'] == 1:
-                    player_tracks_team1[frame_number][player_id] = player_information
-                else:
-                    player_tracks_team2[frame_number][player_id] = player_information
-        return player_tracks_team1, player_tracks_team1
-        
-
-    def correct_tracks(self, tracks):
-        player_tracks = tracks['players']
-        print(type(player_tracks))
-        print(player_tracks[0])
-
-        max_tracking_id = max(
-        (tracking_id for player_track in player_tracks for tracking_id in player_track.keys()), default=0)
     
     def reformat_tracks_for_correction(self, tracks):
         player_tracks = tracks['players']
